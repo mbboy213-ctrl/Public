@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,9 +27,29 @@ const pool = new Pool({
 
 const ALLOWED_ROLES = new Set(['manager', 'maintenance', 'operator']);
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
+
+// Auth Middleware: Verify JWT token
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Access token required' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Invalid or expired token' });
+        }
+        req.user = user;
+        next();
+    });
+};
 
 // --- 1. UNIFIED LOGIN ROUTE ---
 // Handles both Manager and Operator logins
@@ -43,8 +64,17 @@ app.post('/api/login', async (req, res) => {
         );
 
         if (result.rows.length > 0) {
-            console.log(`Log: Login Successful: ${username} (${result.rows[0].role})`);
-            res.json({ success: true, user: result.rows[0] });
+            const user = result.rows[0];
+            console.log(`Log: Login Successful: ${username} (${user.role})`);
+            
+            // Generate JWT token
+            const token = jwt.sign(
+                { username: user.username, role: user.role, machine: user.assigned_machine },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+            
+            res.json({ success: true, user, token });
         } else {
             res.status(401).json({ success: false, message: "Invalid credentials" });
         }
@@ -57,7 +87,7 @@ app.post('/api/login', async (req, res) => {
 // --- 2. USER MANAGEMENT (For Manager Dashboard) ---
 
 // Fetch all users to show in the table
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT username, role, assigned_machine FROM users ORDER BY role DESC');
         res.json(result.rows);
@@ -67,7 +97,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 // Create a new user account
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authenticateToken, async (req, res) => {
     const username = normalizeText(req.body.username);
     const password = typeof req.body.password === 'string' ? req.body.password : '';
     const role = normalizeText(req.body.role).toLowerCase();
@@ -118,7 +148,7 @@ app.post('/api/register', async (req, res) => {
 
 // --- 3. MAINTENANCE TICKETS ---
 
-app.post('/send_fault', async (req, res) => {
+app.post('/send_fault', authenticateToken, async (req, res) => {
     const { machineName, faultType, operator, status } = req.body;
     try {
         const result = await pool.query(
@@ -133,7 +163,7 @@ app.post('/send_fault', async (req, res) => {
     }
 });
 
-app.get('/tickets', async (req, res) => {
+app.get('/tickets', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM maintenance_tickets ORDER BY updated_at DESC, created_at DESC LIMIT 100');
         res.json(result.rows);
@@ -152,7 +182,7 @@ app.get('/machines', async (req, res) => {
 });
 
 // Create a new machine
-app.post('/api/machines', async (req, res) => {
+app.post('/api/machines', authenticateToken, async (req, res) => {
     const name = normalizeText(req.body.name);
     const type = normalizeText(req.body.type);
 
@@ -186,7 +216,7 @@ app.post('/api/machines', async (req, res) => {
     }
 });
 
-app.put('/ticket/:id', async (req, res) => {
+app.put('/ticket/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     try {
