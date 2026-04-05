@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Monitoring System | Maintenance Control Center</title>
+    <script src="auth.js"></script>
+    <script src="config.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
     <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -621,7 +623,10 @@
     <div id="toast-container"></div>
 
     <script>
-        const socket = io('http://localhost:3000');
+        // Check authentication and role
+        requireRole(['maintenance']);
+        
+        const socket = io(SOCKET_URL);
         let allTickets = [];
         let machineStates = [];
 
@@ -631,7 +636,9 @@
 
         async function loadTickets() {
             try {
-                const res = await axios.get('http://localhost:3000/tickets');
+                const res = await axios.get(`${API_BASE_URL}/tickets`, {
+                    headers: getAuthHeader()
+                });
                 allTickets = Array.isArray(res.data) ? res.data : [];
                 renderTickets();
             } catch (e) {
@@ -723,7 +730,9 @@
 
         async function updateStatus(id, newStatus) {
             try {
-                await axios.put(`http://localhost:3000/ticket/${id}`, { status: newStatus });
+                await axios.put(`${API_BASE_URL}/ticket/${id}`, { status: newStatus }, {
+                    headers: getAuthHeader()
+                });
                 showToast('success', 'Status Updated', `Ticket ${id} moved to ${newStatus}.`);
                 loadTickets();
             } catch (e) {

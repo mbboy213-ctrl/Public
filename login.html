@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Monitoring Maintenance System - Login</title>
+    <script src="auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -301,6 +302,10 @@
 
                 if (res.data.success) {
                     const user = res.data.user;
+                    const token = res.data.token;
+                    
+                    // Store JWT token and user info
+                    setAuth(token, user);
                     localStorage.setItem('factory_session', JSON.stringify(user));
 
                     // Show success state briefly

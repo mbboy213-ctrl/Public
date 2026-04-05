@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Operator Terminal — Presse | Smart Monitoring System</title>
+    <script src="auth.js"></script>
+    <script src="config.js"></script>
     <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -1200,11 +1202,13 @@
             btn.innerText = 'Dispatching…';
 
             try {
-                await axios.post('http://localhost:3000/send_fault', {
+                await axios.post(`${API_BASE_URL}/send_fault`, {
                     machineName: session.assigned_machine || MACHINE_NAME,
                     faultType: selectedFault,
                     operator: session.username,
                     status: 'Pending'
+                }, {
+                    headers: getAuthHeader()
                 });
 
                 todayAlerts++;
@@ -1231,7 +1235,9 @@
         // ── Tickets feed ──────────────────────────────────────────
         async function loadTickets() {
             try {
-                const res = await axios.get('http://localhost:3000/tickets');
+                const res = await axios.get(`${API_BASE_URL}/tickets`, {
+                    headers: getAuthHeader()
+                });
                 const machine = session.assigned_machine || MACHINE_NAME;
                 const tickets = res.data.filter(t => t.machine_name === machine).slice(0, 8);
                 const feed = document.getElementById('ticket-feed');
@@ -1286,7 +1292,10 @@
         }
 
         // ── Socket.IO ─────────────────────────────────────────────
-        const socket = io('http://localhost:3000');
+        // Check authentication
+        requireRole(['operator']);
+        
+        const socket = io(SOCKET_URL);
 
         socket.on('connect', () => {
             document.getElementById('conn-dot').style.background = 'var(--success)';

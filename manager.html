@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Monitoring System | Management Command Center</title>
+    <script src="auth.js"></script>
+    <script src="config.js"></script>
     <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
@@ -871,7 +873,10 @@
     </main>
 
     <script>
-        const socket = io('http://localhost:3000');
+        // Check authentication and role
+        requireRole(['manager']);
+        
+        const socket = io(SOCKET_URL);
         const machineOrder = ['Broyeur', 'Atomiseur', 'Presse', 'Séchoir', 'Imprimante', 'Four', 'Marpack'];
 
         const machines = {
@@ -933,8 +938,8 @@
         async function loadAdminData() {
             try {
                 const [usersRes, machinesRes] = await Promise.all([
-                    fetch('http://localhost:3000/api/users'),
-                    fetch('http://localhost:3000/machines')
+                    fetch(`${API_BASE_URL}/api/users`, { headers: getAuthHeader() }),
+                    fetch(`${API_BASE_URL}/machines`, { headers: getAuthHeader() })
                 ]);
 
                 const users = await usersRes.json();
@@ -1001,9 +1006,9 @@
             }
 
             try {
-                const res = await fetch('http://localhost:3000/api/register', {
+                const res = await fetch(`${API_BASE_URL}/api/register`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify({ username, password, role, machine })
                 });
 
@@ -1031,9 +1036,9 @@
             }
 
             try {
-                const res = await fetch('http://localhost:3000/api/machines', {
+                const res = await fetch(`${API_BASE_URL}/api/machines`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify({ name, type })
                 });
 
